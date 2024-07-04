@@ -1,0 +1,78 @@
+Assumptions:
+•	VM-1 will act as the MySQL master.
+•	VM-2 will act as the MySQL slave.
+•	Both VMs are running Linux (e.g., Ubuntu).
+
+Configure MySQL on VM-1 (Master)
+1. Install MySQL Server
+If MySQL is not already installed on VM-1, install it:
+sudo apt update
+sudo apt install mysql-server
+
+2. Configure MySQL for Replication
+Edit the MySQL configuration file (/etc/mysql/mysql.conf.d/mysqld.cnf or /etc/my.cnf) on VM-1:
+sudo nano /etc/mysql/mysql.conf.d/mysqld.cnf
+
+Add or modify the following lines under the [mysqld] section:
+server-id = 1
+log_bin = /var/log/mysql/mysql-bin.log
+binlog_do_db = your_database_name
+Replace your_database_name with the name of the database you want to replicate.
+
+3. Restart MySQL Service
+Restart MySQL to apply the configuration changes:
+sudo systemctl restart mysql
+
+4. Create Replication User
+Log in to MySQL as root:
+sudo mysql -u root -p
+
+Run the following SQL commands to create a replication user and grant necessary privileges:
+CREATE USER 'repl'@'%' IDENTIFIED BY 'your_replication_password';
+GRANT REPLICATION SLAVE ON *.* TO 'repl'@'%';
+FLUSH PRIVILEGES;
+
+5. Note Down Master Status
+While still in the MySQL shell, note down the current binary log file name (File) and position (Position). You'll need this information later for configuring the slave server on VM-2:
+SHOW MASTER STATUS;
+
+Configure MySQL on VM-2 (Slave)
+1. Install MySQL Server
+If MySQL is not already installed on VM-2, install it:
+sudo apt update
+sudo apt install mysql-server
+
+2. Configure MySQL for Replication
+Edit the MySQL configuration file (/etc/mysql/mysql.conf.d/mysqld.cnf or /etc/my.cnf) on VM-2:
+sudo nano /etc/mysql/mysql.conf.d/mysqld.cnf
+
+Add or modify the following lines under the [mysqld] section:
+server-id = 2
+
+3. Restart MySQL Service
+Restart MySQL to apply the configuration changes:
+sudo systemctl restart mysql
+
+4. Set Up Replication on VM-2
+Log in to MySQL as root:
+sudo mysql -u root -p
+
+Run the following SQL commands to configure the slave to replicate from the master (VM-1). Replace master_log_file and master_log_pos with the values obtained from SHOW MASTER STATUS; on VM-1.
+
+CHANGE MASTER TO
+  MASTER_HOST='vm1_ip_address',
+  MASTER_USER='repl',
+  MASTER_PASSWORD='your_replication_password',
+  MASTER_LOG_FILE='master_log_file_from_vm1',
+  MASTER_LOG_POS=master_log_pos_from_vm1;
+
+Replace vm1_ip_address with the IP address or hostname of VM-1 where MySQL master is running.
+
+5. Start Slave Replication on VM-2
+START SLAVE;
+
+6. Verify Slave Status on VM-2
+SHOW SLAVE STATUS \G;
+
+Ensure that Slave_IO_Running and Slave_SQL_Running both show Yes, indicating that replication is working correctly.
+
